@@ -88,8 +88,15 @@ export class TuiRenderer implements Renderer2 {
     return idx >= 0 ? (siblings[idx + 1] ?? null) : null
   }
 
-  selectRootElement(): never {
-    throw new Error('ngx-opentui: selectRootElement is unsupported; bootstrapTuiApplication provides the host')
+  // createComponent() routes its hostElement through here; selector
+  // strings have nothing to resolve against in a terminal.
+  selectRootElement(selectorOrNode: unknown): Renderable {
+    if (selectorOrNode instanceof BaseRenderable) {
+      return selectorOrNode as Renderable
+    }
+    throw new Error(
+      `ngx-opentui: cannot select root element by selector (got ${String(selectorOrNode)}); pass a renderable host`,
+    )
   }
 
   setAttribute(el: Renderable, name: string, value: string): void {
