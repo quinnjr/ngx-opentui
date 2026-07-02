@@ -54,11 +54,14 @@ export class TuiRenderer implements Renderer2 {
 
   destroy(): void {}
 
-  createElement(name: string): Renderable {
+  createElement(name: string): BaseRenderable {
+    // <span> is inline styled text (fg/bg/attributes), the only element
+    // kind that can live inside <text>; its constructor takes no context
+    if (name === 'span') return new TextNodeRenderable({})
     const ctor = ELEMENTS[name]
     if (!ctor) {
       throw new Error(
-        `ngx-opentui: unknown element <${name}>. Known elements: ${Object.keys(ELEMENTS).join(', ')}`,
+        `ngx-opentui: unknown element <${name}>. Known elements: span, ${Object.keys(ELEMENTS).join(', ')}`,
       )
     }
     return new ctor(this.ctx, {})
@@ -104,7 +107,7 @@ export class TuiRenderer implements Renderer2 {
     }
     if (!childIsText && parentIsText) {
       throw new Error(
-        `ngx-opentui: only text may live inside <text> (got ${child.constructor.name})`,
+        `ngx-opentui: only text may live inside <text> (got ${child.constructor.name}); a terminal text run holds styled chunks, not layout nodes — use <span> for inline styled content`,
       )
     }
   }
@@ -132,15 +135,15 @@ export class TuiRenderer implements Renderer2 {
     )
   }
 
-  setAttribute(el: Renderable, name: string, value: string): void {
+  setAttribute(el: BaseRenderable, name: string, value: string): void {
     ;(el as unknown as Record<string, unknown>)[name] = coerce(value)
   }
 
-  removeAttribute(el: Renderable, name: string): void {
+  removeAttribute(el: BaseRenderable, name: string): void {
     ;(el as unknown as Record<string, unknown>)[name] = undefined
   }
 
-  setProperty(el: Renderable, name: string, value: unknown): void {
+  setProperty(el: BaseRenderable, name: string, value: unknown): void {
     const target = el as unknown as Record<string, unknown>
     // two-way echo guard: re-assigning the value an input already holds
     // would move its cursor to the end on every keystroke
@@ -148,23 +151,23 @@ export class TuiRenderer implements Renderer2 {
     target[name] = value
   }
 
-  setStyle(el: Renderable, style: string, value: unknown): void {
+  setStyle(el: BaseRenderable, style: string, value: unknown): void {
     ;(el as unknown as Record<string, unknown>)[style] = value
   }
 
-  removeStyle(el: Renderable, style: string): void {
+  removeStyle(el: BaseRenderable, style: string): void {
     ;(el as unknown as Record<string, unknown>)[style] = undefined
   }
 
-  addClass(_el: Renderable, _name: string): void {}
-  removeClass(_el: Renderable, _name: string): void {}
+  addClass(_el: BaseRenderable, _name: string): void {}
+  removeClass(_el: BaseRenderable, _name: string): void {}
 
   setValue(node: TextNodeRenderable, value: string): void {
     node.clear()
     node.add(value)
   }
 
-  listen(target: Renderable, event: string, callback: (event: unknown) => boolean | void): () => void {
+  listen(target: BaseRenderable, event: string, callback: (event: unknown) => boolean | void): () => void {
     // (valueChange) has no OpenTUI equivalent; inputs emit "input" with the
     // new value, which is exactly the $event [(value)] needs
     const mapped = event === 'valueChange' ? 'input' : event
