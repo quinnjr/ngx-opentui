@@ -59,12 +59,17 @@ export class TuiRenderer implements Renderer2 {
     // kind that can live inside <text>; its constructor takes no context
     if (name === 'span') return new TextNodeRenderable({})
     const ctor = ELEMENTS[name]
-    if (!ctor) {
-      throw new Error(
-        `ngx-opentui: unknown element <${name}>. Known elements: span, ${Object.keys(ELEMENTS).join(', ')}`,
-      )
-    }
-    return new ctor(this.ctx, {})
+    if (ctor) return new ctor(this.ctx, {})
+    // A hyphenated, unmapped tag is an Angular component selector (e.g.
+    // <tool-card>): Angular creates a real host node for a component and
+    // renders the component's own template as children inside it, exactly
+    // like a custom element. That host has no intrinsic TUI presentation of
+    // its own, so it becomes a plain content-sized BoxRenderable — a
+    // transparent pass-through container for whatever the component renders.
+    if (name.includes('-')) return new BoxRenderable(this.ctx, {})
+    throw new Error(
+      `ngx-opentui: unknown element <${name}>. Known elements: span, ${Object.keys(ELEMENTS).join(', ')}`,
+    )
   }
 
   createComment(_value: string): TuiComment {
