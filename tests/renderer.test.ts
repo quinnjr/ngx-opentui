@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
-import { BoxRenderable, TextRenderable } from '@opentui/core'
+import { BoxRenderable, TextNodeRenderable, TextRenderable } from '@opentui/core'
 import { createTestRenderer, type TestRendererSetup } from '@opentui/core/testing'
 import { TuiRenderer } from '../src/renderer'
 
@@ -53,14 +53,25 @@ test('renderable child under <text> throws', () => {
   expect(() => r.appendChild(text, r.createElement('box'))).toThrow(/only text/)
 })
 
-test('comments are invisible zero-size anchors', () => {
+test('comments materialize as invisible boxes under renderable parents', () => {
   const parent = r.createElement('box')
   const comment = r.createComment('container')
   r.appendChild(parent, comment)
   const child = r.createElement('box')
   r.insertBefore(parent, child, comment)
   expect(parent.getChildren()[0]).toBe(child)
-  expect((comment as BoxRenderable).visible).toBe(false)
+  expect(comment.node).toBeInstanceOf(BoxRenderable)
+  expect((comment.node as BoxRenderable).visible).toBe(false)
+})
+
+test('comments materialize as text nodes under <text>', () => {
+  const text = r.createElement('text')
+  const comment = r.createComment('container')
+  r.appendChild(text, comment)
+  expect(comment.node).toBeInstanceOf(TextNodeRenderable)
+  const node = r.createText('conditional')
+  r.insertBefore(text, node, comment)
+  expect((text as TextRenderable).textNode.toChunks().map((c) => c.text).join('')).toBe('conditional')
 })
 
 test('setProperty and coercing setAttribute hit renderable setters', () => {
