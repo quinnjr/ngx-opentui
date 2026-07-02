@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "bun test",
+    "test:coverage": "sh scripts/check-coverage.sh",
     "typecheck": "bunx tsc --noEmit",
     "demo": "bun run demo/main.ts"
   },

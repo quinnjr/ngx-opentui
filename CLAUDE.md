@@ -15,6 +15,7 @@ bun test                          # full suite
 bun test tests/renderer.test.ts   # single file
 bun test -t 'pattern'             # single test by name
 bun run typecheck                 # bunx tsc --noEmit
+bun run test:coverage             # fails unless src coverage is 100% funcs+lines
 bun run demo                      # interactive task-list demo (real terminal)
 ```
 
