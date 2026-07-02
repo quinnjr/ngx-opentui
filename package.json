@@ -1,0 +1,24 @@
+{
+  "name": "ngx-opentui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit",
+    "demo": "bun run demo/main.ts"
+  },
+  "dependencies": {
+    "@angular/compiler": "^22.0.5",
+    "@angular/core": "^22.0.5",
+    "@opentui/core": "^0.4.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^6.0.3"
+  }
+}
