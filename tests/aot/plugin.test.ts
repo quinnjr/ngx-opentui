@@ -36,3 +36,14 @@ test('passes through non-Angular .ts files untouched', async () => {
   const { double } = await import(result.outputs[0]!.path)
   expect(double(21)).toBe(42)
 })
+
+test('surfaces an unreadable tsconfig path as a build error instead of crashing', async () => {
+  const result = await Bun.build({
+    entrypoints: [import.meta.dir + '/fixtures/greeting.component.ts'],
+    outdir: '/tmp/ngx-opentui-aot-test-bad-tsconfig',
+    plugins: [ngxOpenTuiAot({ tsconfig: '/nonexistent/path/tsconfig.json' })],
+    throw: false,
+  })
+  expect(result.success).toBe(false)
+  expect(result.logs.some((log) => /tsconfig|ENOENT|not exist/i.test(log.message))).toBe(true)
+})
