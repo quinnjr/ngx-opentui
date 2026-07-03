@@ -5,7 +5,11 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./aot": "./src/aot/index.ts"
+  },
+  "bin": {
+    "ngx-opentui-aot": "./bin/ngx-opentui-aot.ts"
   },
   "scripts": {
     "test": "bun test",
