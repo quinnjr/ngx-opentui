@@ -11,6 +11,10 @@ interface Task {
 // two inputs via TuiFocus; state flows through signals + [(value)].
 @Component({
   selector: 'task-app',
+  // CUSTOM_ELEMENTS_SCHEMA only suppresses unknown-element diagnostics for
+  // hyphenated tag names; ngx-opentui's own elements (box, text, input,
+  // span) aren't hyphenated, so it doesn't actually help here —
+  // NO_ERRORS_SCHEMA is required for this component to AOT-compile.
   schemas: [NO_ERRORS_SCHEMA],
   template: `
     <box flexDirection="column" padding="1" width="100%" height="100%">
