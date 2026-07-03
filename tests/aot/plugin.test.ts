@@ -27,10 +27,12 @@ test('surfaces ngtsc diagnostics as a build error for an invalid fixture', async
 
 test('passes through non-Angular .ts files untouched', async () => {
   const result = await Bun.build({
-    entrypoints: [import.meta.dir + '/fixtures/greeting.component.ts'],
+    entrypoints: [import.meta.dir + '/fixtures/plain-util.ts'],
     outdir: '/tmp/ngx-opentui-aot-test-passthrough',
     plugins: [ngxOpenTuiAot({ tsconfig: import.meta.dir + '/fixtures/tsconfig.valid.json' })],
     throw: false,
   })
   expect(result.success).toBe(true)
+  const { double } = await import(result.outputs[0]!.path)
+  expect(double(21)).toBe(42)
 })
