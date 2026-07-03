@@ -48,6 +48,28 @@ test('rejects when --outdir is given no value', async () => {
   await expect(runAotCli([entryPath, '--outdir'])).rejects.toThrow(/--outdir/)
 })
 
+test('rejects when --tsconfig is given no value', async () => {
+  await expect(runAotCli([entryPath, '--tsconfig'])).rejects.toThrow(/--tsconfig/)
+})
+
+test('rejects when the build fails', async () => {
+  await mkdir(scratchRoot, { recursive: true })
+  const outdir = await mkdtemp(join(scratchRoot, 'build-fail-'))
+  try {
+    await expect(
+      runAotCli([
+        import.meta.dir + '/fixtures/bad.component.ts',
+        '--outdir',
+        outdir,
+        '--tsconfig',
+        import.meta.dir + '/fixtures/tsconfig.invalid.json',
+      ]),
+    ).rejects.toThrow(/build failed/)
+  } finally {
+    await rm(outdir, { recursive: true, force: true })
+  }
+})
+
 test('defaults outdir to "dist" when --outdir is not passed', async () => {
   await mkdir(scratchRoot, { recursive: true })
   const cwd = await mkdtemp(join(scratchRoot, 'cwd-'))
