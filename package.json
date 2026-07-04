@@ -5,7 +5,11 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./aot": "./src/aot/index.ts"
+  },
+  "bin": {
+    "ngx-opentui-aot": "./bin/ngx-opentui-aot.ts"
   },
   "scripts": {
     "test": "bun test",
@@ -15,6 +19,7 @@
   },
   "dependencies": {
     "@angular/compiler": "^22.0.5",
+    "@angular/compiler-cli": "^22.0.5",
     "@angular/core": "^22.0.5",
     "@opentui/core": "^0.4.2",
     "rxjs": "^7.8.2"
