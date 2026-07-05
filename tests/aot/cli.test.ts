@@ -147,6 +147,9 @@ test('prints a reminder that @opentui/core must be resolvable at runtime after a
 test('a --compile executable fails at runtime when @opentui/core is not resolvable from its cwd', async () => {
   await mkdir(scratchRoot, { recursive: true })
   const outdir = await mkdtemp(join(scratchRoot, 'compile-portability-'))
+  // Deliberately outside the repo tree (unlike scratchRoot above) — the
+  // compiled executable must fail to resolve @opentui/core here, proving
+  // it isn't fully self-contained.
   const noNodeModulesCwd = await mkdtemp(join(tmpdir(), 'ngx-opentui-aot-no-node-modules-'))
   try {
     const result = await runAotCli([entryPath, '--outdir', outdir, '--tsconfig', tsconfigPath, '--compile'])
