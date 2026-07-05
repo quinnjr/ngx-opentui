@@ -1,8 +1,11 @@
+import { basename, extname, join } from 'node:path'
 import { ngxOpenTuiAot } from './plugin'
 
 export interface RunAotCliResult {
-  /** The resolved output directory the build was written to. */
+  /** The resolved output directory the build was written to (or used as the base for the default executable name/location in --compile mode). */
   outdir: string
+  /** The path of the compiled executable. Only set when --compile was passed. */
+  outfile?: string
 }
 
 export async function runAotCli(argv: string[]): Promise<RunAotCliResult> {
@@ -23,9 +26,23 @@ export async function runAotCli(argv: string[]): Promise<RunAotCliResult> {
     throw new Error('ngx-opentui-aot: --tsconfig requires a value')
   }
 
+  const compile = argv.includes('--compile')
+
+  const outfileIndex = argv.indexOf('--outfile')
+  const explicitOutfile = outfileIndex !== -1 ? argv[outfileIndex + 1] : undefined
+  if (outfileIndex !== -1 && !explicitOutfile) {
+    throw new Error('ngx-opentui-aot: --outfile requires a value')
+  }
+  const outfile = compile ? (explicitOutfile ?? join(outdir, basename(entry, extname(entry)))) : undefined
+
   const result = await Bun.build({
     entrypoints: [entry],
-    outdir,
+    // Bun's JS build API requires `outfile` nested inside `compile` for
+    // standalone executables — a top-level `outfile` alongside `compile: true`
+    // (the shape shown in Bun's own docs and how the CLI's --compile/--outfile
+    // flags pair) is silently ignored by the programmatic API, writing the
+    // executable to a name derived from the entry point in the cwd instead.
+    ...(compile ? { compile: { outfile } } : { outdir }),
     plugins: [ngxOpenTuiAot({ tsconfig })],
     // @opentui/core resolves its native Zig layer through one of several
     // platform-specific optional dependencies (e.g. @opentui/core-linux-x64)
@@ -42,6 +59,14 @@ export async function runAotCli(argv: string[]): Promise<RunAotCliResult> {
   if (!result.success) {
     const messages = result.logs.map((log) => log.message).join('\n')
     throw new Error(`ngx-opentui-aot: build failed\n${messages}`)
+  }
+
+  if (compile) {
+    console.log(
+      `ngx-opentui-aot: compiled ${outfile} — @opentui/core is external, so this executable is not fully self-contained. ` +
+        `Ship node_modules/@opentui/core (matching your target platform) alongside it, or install it on the machine that runs it.`,
+    )
+    return { outdir, outfile }
   }
 
   return { outdir }

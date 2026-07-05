@@ -86,3 +86,45 @@ test('defaults outdir to "dist" when --outdir is not passed', async () => {
     await rm(cwd, { recursive: true, force: true })
   }
 })
+
+test('compiles to a standalone executable with a default name derived from the entry', async () => {
+  await mkdir(scratchRoot, { recursive: true })
+  const outdir = await mkdtemp(join(scratchRoot, 'compile-default-'))
+  try {
+    const result = await runAotCli([entryPath, '--outdir', outdir, '--tsconfig', tsconfigPath, '--compile'])
+    const expectedOutfile = join(outdir, 'task-app-entry')
+    expect(result.outfile).toBe(expectedOutfile)
+
+    const proc = Bun.spawn([expectedOutfile], { stdout: 'pipe', stderr: 'pipe' })
+    const code = await proc.exited
+    expect(code).toBe(0)
+  } finally {
+    await rm(outdir, { recursive: true, force: true })
+  }
+})
+
+test('compiles to an explicit --outfile location, overriding the default name', async () => {
+  await mkdir(scratchRoot, { recursive: true })
+  const outdir = await mkdtemp(join(scratchRoot, 'compile-explicit-'))
+  const explicitOutfile = join(outdir, 'my-custom-name')
+  try {
+    const result = await runAotCli([
+      entryPath,
+      '--outdir',
+      outdir,
+      '--tsconfig',
+      tsconfigPath,
+      '--compile',
+      '--outfile',
+      explicitOutfile,
+    ])
+    expect(result.outfile).toBe(explicitOutfile)
+    expect(await Bun.file(explicitOutfile).exists()).toBe(true)
+  } finally {
+    await rm(outdir, { recursive: true, force: true })
+  }
+})
+
+test('rejects when --outfile is given no value', async () => {
+  await expect(runAotCli([entryPath, '--compile', '--outfile'])).rejects.toThrow(/--outfile/)
+})
