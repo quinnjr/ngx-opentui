@@ -2,7 +2,7 @@
 
 Experimental Angular renderer for [OpenTUI](https://github.com/anomalyco/opentui) — the Angular counterpart of `@opentui/react` and `@opentui/solid`. Angular templates, signals, and DI drive a terminal UI: a custom `Renderer2` maps Angular's element operations onto OpenTUI renderables, with no DOM and no `platform-browser`.
 
-**Status: proof of concept.** JIT-only, Bun-only, APIs will change.
+**Status: proof of concept.** JIT by default (optional AOT builder available), Bun-only, APIs will change.
 
 ## Requirements
 
@@ -42,7 +42,7 @@ await bootstrapTuiApplication(CounterApp)
 bun run app.ts
 ```
 
-No build step — templates compile at startup via `@angular/compiler`.
+No build step required — templates compile at startup via `@angular/compiler`. An optional AOT builder is also available (see below) if you'd rather compile ahead of time.
 
 ## Elements
 
@@ -63,6 +63,34 @@ Layout and style props bind straight to renderable setters: `flexDirection`, `pa
 - **`TuiKeyboard`** — global key events through DI: `onKey(handler)` returns an unsubscribe function.
 - **`TuiFocus`** — document-order focus traversal: `focusNext()`, `focusPrevious()`, `current()`, and opt-in `enableTabCycling()` for tab/shift+tab.
 
+## AOT builder
+
+`ngx-opentui/aot` provides an ahead-of-time build path via a Bun plugin backed by `@angular/compiler-cli`, so your app ships without the runtime JIT compiler.
+
+CLI:
+
+```sh
+bunx ngx-opentui-aot ./src/main.ts --outdir dist
+bun dist/main.js
+```
+
+Or as a `Bun.build()` plugin directly:
+
+```ts
+import { ngxOpenTuiAot } from 'ngx-opentui/aot'
+
+await Bun.build({
+  entrypoints: ['./src/main.ts'],
+  outdir: 'dist',
+  plugins: [ngxOpenTuiAot()],
+})
+```
+
+Notes:
+
+- Components compiled AOT must use `NO_ERRORS_SCHEMA` instead of `CUSTOM_ELEMENTS_SCHEMA` — Angular's AOT template checker only suppresses unknown-element errors for hyphenated tag names, and none of this renderer's elements (`box`, `text`, `input`, `span`, ...) are hyphenated.
+- `@opentui/core` is always bundled as `external` (it resolves its native layer through platform-specific optional dependencies at runtime).
+
 ## What works
 
 - `@if` / `@for` / bindings / signals / computed / DI — anywhere, including inside `<text>`
@@ -72,7 +100,7 @@ Layout and style props bind straight to renderable setters: `flexDirection`, `pa
 
 ## Known limitations
 
-- **JIT-mode Angular**: use the `@ViewChild` decorator, not signal-based `viewChild()` queries (invisible to the JIT compiler); DI via `inject()`, not constructor parameters
+- Use the `@ViewChild` decorator, not signal-based `viewChild()` queries (invisible to the JIT compiler); DI via `inject()`, not constructor parameters — applies whether running JIT or AOT
 - `<input>` is a void element in Angular's template parser — write `<input />`, never `</input>`
 - Layout elements (`<box>` etc.) cannot live inside `<text>` — terminal text runs hold styled chunks, not layout nodes; use `<span>`
 - Component `styles` are meaningless in a terminal and unsupported

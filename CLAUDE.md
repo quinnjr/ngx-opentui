@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Experimental Angular renderer for OpenTUI (the Angular counterpart of `@opentui/react`). A custom `Renderer2` maps Angular template operations onto `@opentui/core` renderables; there is no DOM, no `platform-browser`, no zone.js, and no build step (JIT via `@angular/compiler` at startup).
+Experimental Angular renderer for OpenTUI (the Angular counterpart of `@opentui/react`). A custom `Renderer2` maps Angular template operations onto `@opentui/core` renderables; there is no DOM, no `platform-browser`, no zone.js. Apps run JIT by default (`@angular/compiler` at startup) but can opt into AOT via `ngx-opentui/aot` (see Architecture below).
 
 ## Commands
 
@@ -27,6 +27,20 @@ Three layers in `src/`, all exported through `src/index.ts`:
 - **`bootstrap.ts`** — `bootstrapTuiApplication()`. Builds the app injector with `ɵinternalCreateApplication`, then mounts the root component onto `renderer.root` via `createComponent({hostElement})`, routed through the renderer's `selectRootElement`. Owns the `CliRenderer` unless one is passed in (`options.renderer` — how tests inject the headless renderer).
 - **`keyboard.ts` / `focus.ts`** — `TuiKeyboard` (global keypress via `renderer.keyInput`) and `TuiFocus` (document-order focus traversal + opt-in tab cycling). Both `providedIn: 'root'`, injecting `CliRenderer` as the DI token.
 
+### AOT builder (`src/aot/`, exported as `ngx-opentui/aot`)
+
+Optional opt-in build path, separate from the JIT-by-default runtime above:
+
+- **`plugin.ts`** — `ngxOpenTuiAot(options?)`, a Bun build plugin. On `setup()` it runs `@angular/compiler-cli`'s `readConfiguration` → `createCompilerHost` → `performCompilation` **once** over the whole tsconfig file graph (ngtsc needs cross-file metadata, so this can't be a per-file transform), capturing every emitted `.js` into a `Map` keyed by the *original* absolute `.ts` source path (via the `sourceFiles` param `host.writeFile` receives — robust regardless of `outDir`). `onLoad` then serves pre-emitted source for any matched path and returns `undefined` (passthrough) for anything ngtsc didn't touch.
+- **`cli.ts`** — `runAotCli(argv)`, a thin wrapper: parses `entry`, `--outdir` (default `dist`), `--tsconfig`, calls `Bun.build()` with the plugin, marks `@opentui/core` external (see below), throws with formatted diagnostics on failure.
+- **`bin/ngx-opentui-aot.ts`** — shebang entry (`package.json`'s `bin`).
+
+**Non-obvious constraints discovered building this:**
+- `CUSTOM_ELEMENTS_SCHEMA` (used everywhere per the JIT constraints below) only suppresses ngtsc's NG8001 for **hyphenated** tag names — this renderer's own elements (`box`, `text`, `input`, `span`, ...) aren't hyphenated, so it's a no-op under AOT. Components that need AOT must use `NO_ERRORS_SCHEMA` instead (see `demo/app.component.ts`); this doesn't change JIT behavior since JIT has the same dash-check gap.
+- `@opentui/core` must always be marked `external` in any `Bun.build()` that uses this plugin — it resolves its native Zig layer through platform-specific optional dependencies chosen at runtime, and bundling it makes Bun try to statically resolve every platform's package.
+- `@angular/core` only needs to be `external` when a component is AOT-compiled in a *separate* `Bun.build()` call from the code that bootstraps it (e.g. tests that build a fixture, then `import()` it into an already-running process) — otherwise two live copies of `@angular/core` end up with separate DI globals (`NG0203`). A single build covering the whole entry point (component + `bootstrapTuiApplication` call) doesn't need this.
+- `scripts/check-coverage.sh`'s gate checks only rows whose path starts with `src/` (not bun's "All files" aggregate) — once tests started importing generated AOT build artifacts and `demo/app.component.ts`, the aggregate stopped meaning "100% of src".
+
 ### Invariants that are not obvious from any single file
 
 - **Text containment**: text nodes and `<span>`s may only live under `<text>` (OpenTUI text buffers hold styled chunks, not layout nodes); layout renderables may not. `assertValidChild` in `renderer.ts` enforces both directions with descriptive errors. Don't weaken it — a violation renders as nothing.
@@ -40,7 +54,7 @@ Three layers in `src/`, all exported through `src/index.ts`:
 - DI via `inject()` only — constructor parameter injection needs decorator metadata Bun doesn't reliably emit.
 - `@ViewChild` decorator, never signal-based `viewChild()` — initializer-based queries are invisible to the JIT compiler (fails at runtime with NG0951).
 - `<input>` is a void element to Angular's parser: `<input />`, never `</input>`.
-- Components need `schemas: [CUSTOM_ELEMENTS_SCHEMA]`.
+- Components need `schemas: [CUSTOM_ELEMENTS_SCHEMA]` (except components compiled via the AOT builder — see above).
 
 ## Testing
 
