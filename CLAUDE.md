@@ -40,6 +40,7 @@ Optional opt-in build path, separate from the JIT-by-default runtime above:
 - `@opentui/core` must always be marked `external` in any `Bun.build()` that uses this plugin — it resolves its native Zig layer through platform-specific optional dependencies chosen at runtime, and bundling it makes Bun try to statically resolve every platform's package.
 - `@angular/core` only needs to be `external` when a component is AOT-compiled in a *separate* `Bun.build()` call from the code that bootstraps it (e.g. tests that build a fixture, then `import()` it into an already-running process) — otherwise two live copies of `@angular/core` end up with separate DI globals (`NG0203`). A single build covering the whole entry point (component + `bootstrapTuiApplication` call) doesn't need this.
 - `scripts/check-coverage.sh`'s gate checks only rows whose path starts with `src/` (not bun's "All files" aggregate) — once tests started importing generated AOT build artifacts and `demo/app.component.ts`, the aggregate stopped meaning "100% of src".
+- `Bun.build()`'s JS API requires `outfile` nested inside `compile` (`compile: { outfile }`) for standalone executables — a top-level `outfile` alongside `compile: true` is silently ignored by the programmatic API (it writes to a name derived from the entry point in the cwd instead), even though this is how the CLI's own `--compile`/`--outfile` flags are documented to pair and how Bun's own type-doc example shows it. `src/aot/cli.ts` always uses the nested form.
 
 ### Invariants that are not obvious from any single file
 
