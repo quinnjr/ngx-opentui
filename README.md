@@ -91,6 +91,23 @@ Notes:
 - Components compiled AOT must use `NO_ERRORS_SCHEMA` instead of `CUSTOM_ELEMENTS_SCHEMA` — Angular's AOT template checker only suppresses unknown-element errors for hyphenated tag names, and none of this renderer's elements (`box`, `text`, `input`, `span`, ...) are hyphenated.
 - `@opentui/core` is always bundled as `external` (it resolves its native layer through platform-specific optional dependencies at runtime).
 
+### Standalone executables
+
+Add `--compile` to produce a standalone Bun executable instead of a bundled JS output:
+
+```sh
+bunx ngx-opentui-aot ./src/main.ts --outdir dist --compile
+./dist/main
+```
+
+`--outfile <path>` overrides the default name/location (`<outdir>/<entry-name>`):
+
+```sh
+bunx ngx-opentui-aot ./src/main.ts --compile --outfile ./build/my-app
+```
+
+**This executable is not fully self-contained.** `@opentui/core` stays external (see above), so `node_modules/@opentui/core` (matching your target platform) must be resolvable from wherever the executable runs — ship it alongside the binary, or install it on the target machine. The CLI prints a reminder of this after every `--compile` build.
+
 ## What works
 
 - `@if` / `@for` / bindings / signals / computed / DI — anywhere, including inside `<text>`

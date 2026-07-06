@@ -1,5 +1,6 @@
-import { afterAll, expect, test } from 'bun:test'
+import { afterAll, expect, spyOn, test } from 'bun:test'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createTestRenderer } from '@opentui/core/testing'
 import { runAotCli } from '../../src/aot/cli'
@@ -84,5 +85,83 @@ test('defaults outdir to "dist" when --outdir is not passed', async () => {
   } finally {
     process.chdir(originalCwd)
     await rm(cwd, { recursive: true, force: true })
+  }
+})
+
+test('compiles to a standalone executable with a default name derived from the entry', async () => {
+  await mkdir(scratchRoot, { recursive: true })
+  const outdir = await mkdtemp(join(scratchRoot, 'compile-default-'))
+  try {
+    const result = await runAotCli([entryPath, '--outdir', outdir, '--tsconfig', tsconfigPath, '--compile'])
+    const expectedOutfile = join(outdir, 'task-app-entry')
+    expect(result.outfile).toBe(expectedOutfile)
+
+    const proc = Bun.spawn([expectedOutfile], { stdout: 'pipe', stderr: 'pipe' })
+    const code = await proc.exited
+    expect(code).toBe(0)
+  } finally {
+    await rm(outdir, { recursive: true, force: true })
+  }
+})
+
+test('compiles to an explicit --outfile location, overriding the default name', async () => {
+  await mkdir(scratchRoot, { recursive: true })
+  const outdir = await mkdtemp(join(scratchRoot, 'compile-explicit-'))
+  const explicitOutfile = join(outdir, 'my-custom-name')
+  try {
+    const result = await runAotCli([
+      entryPath,
+      '--outdir',
+      outdir,
+      '--tsconfig',
+      tsconfigPath,
+      '--compile',
+      '--outfile',
+      explicitOutfile,
+    ])
+    expect(result.outfile).toBe(explicitOutfile)
+    expect(await Bun.file(explicitOutfile).exists()).toBe(true)
+  } finally {
+    await rm(outdir, { recursive: true, force: true })
+  }
+})
+
+test('rejects when --outfile is given no value', async () => {
+  await expect(runAotCli([entryPath, '--compile', '--outfile'])).rejects.toThrow(/--outfile/)
+})
+
+test('prints a reminder that @opentui/core must be resolvable at runtime after a --compile build', async () => {
+  await mkdir(scratchRoot, { recursive: true })
+  const outdir = await mkdtemp(join(scratchRoot, 'compile-reminder-'))
+  const logSpy = spyOn(console, 'log')
+  try {
+    await runAotCli([entryPath, '--outdir', outdir, '--tsconfig', tsconfigPath, '--compile'])
+    const messages = logSpy.mock.calls.map((call) => call.join(' '))
+    expect(messages.some((message) => message.includes('@opentui/core'))).toBe(true)
+  } finally {
+    logSpy.mockRestore()
+    await rm(outdir, { recursive: true, force: true })
+  }
+})
+
+test('a --compile executable fails at runtime when @opentui/core is not resolvable from its cwd', async () => {
+  await mkdir(scratchRoot, { recursive: true })
+  const outdir = await mkdtemp(join(scratchRoot, 'compile-portability-'))
+  // Deliberately outside the repo tree (unlike scratchRoot above) — the
+  // compiled executable must fail to resolve @opentui/core here, proving
+  // it isn't fully self-contained.
+  const noNodeModulesCwd = await mkdtemp(join(tmpdir(), 'ngx-opentui-aot-no-node-modules-'))
+  try {
+    const result = await runAotCli([entryPath, '--outdir', outdir, '--tsconfig', tsconfigPath, '--compile'])
+
+    const proc = Bun.spawn([result.outfile!], { cwd: noNodeModulesCwd, stdout: 'pipe', stderr: 'pipe' })
+    const code = await proc.exited
+    const stderr = await new Response(proc.stderr).text()
+
+    expect(code).not.toBe(0)
+    expect(stderr).toContain('@opentui/core')
+  } finally {
+    await rm(outdir, { recursive: true, force: true })
+    await rm(noNodeModulesCwd, { recursive: true, force: true })
   }
 })
